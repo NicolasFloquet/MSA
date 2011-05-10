@@ -1,0 +1,322 @@
+#!/bin/sh
+
+MC_PATH=~/.minecraft
+MEMALOC=512
+SCREEN_NAME="minecraft"	
+WORLD_NAME="world"
+CARTO_PATH=$MC_PATH/carto
+BACKUP_PATH=$MC_PATH/backup
+C10T_PATH=$MC_PATH
+IMAGE_PATH=~/www/images/map.png
+
+file_exist(){
+    if [ -e $1 ]
+    then
+		return 0
+    else
+		return 1
+    fi
+}
+
+lock(){
+	if(file_exist $MC_PATH/.lock)
+	then
+		echo "A command is already runnning"
+	else
+		echo $1 > $MC_PATH/.lock
+	fi
+}
+
+unlock(){
+	rm -f $MC_PATH/.lock
+}
+
+is_server_online(){
+	if file_exist $MC_PATH/server.log.lck
+	then
+	    return 0
+	else
+	    return 1
+	fi
+}
+
+server_start() {
+        
+	if is_server_online
+	then
+	    echo "Minecraft server is already running."
+	else
+	    if file_exist $MC_PATH/minecraft_server.jar
+	    then
+			echo "Launching minecraft server..."
+			cd $MC_PATH; screen -m -d -S $SCREEN_NAME java -Xmx${MEMALOC}M -Xms${MEMALOC}M -Djava.net.preferIPv4Stack=true -jar minecraft_server.jar nogui; sleep 1
+	    else
+			echo "minecraft_server.jar not found, cannot start the server."	
+	    fi
+	fi
+}
+
+
+command(){
+	screen -S $SCREEN_NAME -p 0 -X stuff "`printf "$1\r"`"
+}
+say(){
+	command "say $1"
+}
+
+server_stop() {
+    if is_server_online
+    then
+    
+		echo "Stopping minecraft server in 30s..."
+		say "Server will stop in 30s !"; sleep  20
+		
+		echo "Stopping minecraft server in 10s..."
+		say "say Server will stop in 10s !"; sleep  5
+		
+		say "5..."; sleep  1
+		say "4..."; sleep  1
+		say "3..."; sleep  1
+		say "2..."; sleep  1
+		say "1..."; sleep  1
+		
+		say "Server stop NOW\r"; 
+
+		echo "Stopping minecraft server."
+		command "stop."; sleep 1
+    else
+		echo "Minecraft server is not running."
+    fi
+}
+
+server_stop_now() {
+    if is_server_online
+    then
+		echo "Stopping minecraft server..."
+		say "Server brutal shutdown!"; sleep 1
+		
+		command "stop."; sleep 1
+    else
+		echo "Minecraft server is not running."
+    fi
+}
+
+server_restart()
+{
+    if is_server_online
+    then
+		echo "Restarting minecraft server in 30s..."
+		say "Server will restart in 30s !"; sleep  20
+		
+		echo "Restarting minecraft server in 10s..."
+		say "Server will restart in 10s !"; sleep  5
+		
+		say "5..."; sleep  1
+		say "4..."; sleep  1
+		say "3..."; sleep  1
+		say "2..."; sleep  1
+		say "1..."; sleep  1
+		
+		say "Server restart NOW"; 
+		
+		echo "Restarting minecraft server."
+		command "stop."; sleep 5
+
+		server_start
+    else
+		server_start
+    fi
+}
+
+server_restart_now()
+{
+    if is_server_online
+    then
+		echo "Restarting minecraft server ..."
+		
+		say "Server will restart NOW !"; sleep  1
+		command "stop."; sleep 5
+
+		server_start
+    else
+		server_start
+    fi
+}
+
+backup(){
+	NOW=`date '+_%d_%m_%y_%Hh%M'`
+	if(file_exist $MC_PATH/$WORLD_NAME)
+	then
+		say "Server backup in 10s..."; sleep 10
+		
+		say "Save-all, wait 5s..."
+		command "save-all"; sleep 5
+		
+		say "Disabling auto-save..."
+		command "save-off";
+		say "Saving..."
+		
+		if( ! file_exist $BACKUP_PATH)
+		then
+			echo "backup folder not found, creating it in $BACKUP_PATH"
+			mkdir $BACKUP_PATH
+		fi
+		FILENAME=$WORLD_NAME$NOW.tgz
+		echo "saving \"$WORLD_NAME/\" as $FILENAME..."
+		tar -zcvf $BACKUP_PATH/$FILENAME $MC_PATH/$WORLD_NAME > /dev/null 2>/dev/null
+		
+		say "World saved, thank you!"
+		command "save-on"
+	else
+		echo "no world named \"$WORLD_NAME\" has been found."
+	fi
+}
+
+cartograph(){
+	NOW=`date '+_%d_%m_%y_%Hh%M'`
+	if(file_exist $MC_PATH/$WORLD_NAME)
+	then
+		if(is_server_online)
+		then
+			say "Cartographing the world..."
+			say "Save-all, wait 5s..."
+			command "save-all"; sleep 5
+			say "Disabling auto-save..."
+			command "save-off";
+			say "Rendering..."
+		fi
+		
+		if( ! file_exist $CARTO_PATH)
+		then
+			echo "cartography folder not found, creating it in $CARTO_PATH"
+			mkdir $CARTO_PATH
+		fi
+		FILENAME=$WORLD_NAME$NOW.png
+		echo "rendering to $FILENAME..."
+		
+		$C10T_PATH/c10t -w $MC_PATH/$WORLD_NAME -o $CARTO_PATH/$FILENAME -y -M 64 > /dev/null 2> /dev/null
+		cp $CARTO_PATH/$FILENAME $IMAGE_PATH	
+		if(is_server_online)
+		then
+			say "Cartography done, thank you!"
+			command "save-on"
+		fi
+	else
+		echo "no world named \"$WORLD_NAME\" has been found."
+	fi	
+}
+
+update(){
+	if(is_server_online)
+	then
+		WAS_ONLINE=1
+		say "Server update..."
+		server_stop
+	else
+		WAS_ONLINE=0
+	fi
+
+	
+	if($WAS_ONLINE)
+	then
+		server_start
+	fi
+}
+
+usage(){
+	echo "Usage : minecraft <status | start | stop[now] | restart [now] | logs [clean] | backup [clean] | cartography | update>"
+}
+
+if [ $# -gt 0 ]
+then
+	case $1 in
+
+	#################################################################
+	"status")
+		if (is_server_online)
+		then
+			echo "ONLINE"
+		else 
+			echo "OFFLINE"
+		fi;;
+
+	#################################################################
+	"locked")
+		if (file_exist "$MC_PATH/.lock")
+		then
+			cat $MC_PATH/.lock
+		else
+			echo "NO"
+		fi;;
+
+	#################################################################
+	"start")
+	server_start;;
+
+
+	#################################################################
+	"stop")
+	if [ $# -gt 1 ]
+	then
+		case $2 in
+			"now")
+				lock "stop_now"
+				server_stop_now
+				unlock;;
+			*)
+				usage;;
+		esac
+	else
+		lock "stop"
+		server_stop
+		unlock
+	fi;;
+
+	#################################################################
+	"restart")
+	if [ $# -gt 1 ]
+	then
+		case $2 in
+			"now")
+				lock "restart_now"
+				server_restart_now
+				unlock;;
+			*)
+				usage;;
+		esac
+	else
+		lock "restart"
+		server_restart
+		unlock
+	fi;;
+		
+	#################################################################
+	"logs")
+	echo "logs: not implemented yet";;
+
+	#################################################################
+	"backup")
+	lock "backup"
+	backup
+	unlock;;
+
+
+	#################################################################
+	"cartography")
+	lock "cartography"
+	cartograph
+	unlock;;
+
+	
+	#################################################################
+	"update")
+	echo "update: not implemented yet";;
+	
+	"say")
+	say $2;;
+				
+	#################################################################
+	*)
+		usage;;
+	esac
+fi
