@@ -1,13 +1,13 @@
 #!/bin/sh
 
-MC_PATH=~/.minecraft
+MC_PATH=/home/nicolas/.minecraft
 MEMALOC=512
 SCREEN_NAME="minecraft"	
 WORLD_NAME="world"
 CARTO_PATH=$MC_PATH/carto
 BACKUP_PATH=$MC_PATH/backup
-C10T_PATH=$MC_PATH
-IMAGE_PATH=~/www/images/map.png
+C10T_PATH=$MC_PATH/c10t-1.7
+GMAP_PATH=/home/nicolas/www/map/
 
 file_exist(){
     if [ -e $1 ]
@@ -195,7 +195,10 @@ cartograph(){
 		echo "rendering to $FILENAME..."
 		
 		$C10T_PATH/c10t -w $MC_PATH/$WORLD_NAME -o $CARTO_PATH/$FILENAME -y -M 64 > /dev/null 2> /dev/null
-		cp $CARTO_PATH/$FILENAME $IMAGE_PATH	
+		
+		#Do the google-map rendering
+		$C10T_PATH/google-api/google-api.sh -w $MC_PATH/$WORLD_NAME -o $GMAP_PATH -z 7 -O -y
+			
 		if(is_server_online)
 		then
 			say "Cartography done, thank you!"

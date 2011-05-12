@@ -1,0 +1,1 @@
+var c10t_json = {"markers":[],"st":{"MapX":16,"MapY":128,"MapZ":16},"world":{"cx":191,"cy":335,"dx":400,"dy":128,"dz":400,"mn_x":-208,"mn_z":-208,"mode":1,"mx_x":176,"mx_z":176,"split":0,"split_base":0}};
